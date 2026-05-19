@@ -82,6 +82,58 @@ export interface EnterpriseSeatsPage {
   seats: EnterpriseCopilotSeatRaw[];
 }
 
+export interface EnterpriseBudgetRaw {
+  id: string;
+  budget_amount: number;
+  budget_scope: string;
+  user?: string | null;
+  prevent_further_usage?: boolean;
+  budget_product_sku?: string | null;
+  budget_type?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  current_amount?: number;
+  current_usage?: number;
+  effective_budget?: EnterpriseBudgetRaw | null;
+  [key: string]: unknown;
+}
+
+export interface EnterpriseBudgetListResponse {
+  budgets?: EnterpriseBudgetRaw[];
+  items?: EnterpriseBudgetRaw[];
+  [key: string]: unknown;
+}
+
+export interface OrgTeamRaw {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  privacy?: string;
+  members_count?: number;
+  [key: string]: unknown;
+}
+
+export interface TeamMemberRaw {
+  login: string;
+  id: number;
+  avatar_url?: string;
+  html_url?: string;
+  [key: string]: unknown;
+}
+
+export interface UpdateEnterpriseBudgetInput {
+  budgetAmount: number;
+}
+
+export interface CreateEnterpriseBudgetInput {
+  user: string;
+  budgetAmount: number;
+  budgetProductSku: string;
+  budgetType?: string;
+  preventFurtherUsage?: boolean;
+}
+
 class GitHubCopilotClient {
   private token: string;
   private baseUrl = 'https://api.github.com';
@@ -216,6 +268,141 @@ class GitHubCopilotClient {
       throw new Error(`GET /enterprises/${enterprise}/settings/billing/premium_request/usage → ${r.status}: ${body}`);
     }
     return r.json() as Promise<{ usageItems: PremiumRequestUsageItem[] }>;
+  }
+
+  async listEnterpriseBudgets(
+    enterprise: string,
+    filters?: { user?: string; budgetTarget?: string }
+  ): Promise<EnterpriseBudgetRaw[] | EnterpriseBudgetListResponse> {
+    logger.debug('Fetching enterprise budgets', { enterprise, filters });
+    const query = new URLSearchParams();
+    if (filters?.user) query.set('user', filters.user);
+    if (filters?.budgetTarget) query.set('budgetTarget', filters.budgetTarget);
+
+    const suffix = query.toString() ? `?${query.toString()}` : '';
+    const r = await fetch(
+      `${this.baseUrl}/enterprises/${enterprise}/settings/billing/budgets${suffix}`,
+      { headers: this.headers }
+    );
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`GET /enterprises/${enterprise}/settings/billing/budgets → ${r.status}: ${body}`);
+    }
+    return r.json() as Promise<EnterpriseBudgetRaw[] | EnterpriseBudgetListResponse>;
+  }
+
+  async updateEnterpriseBudget(
+    enterprise: string,
+    budgetId: string,
+    input: UpdateEnterpriseBudgetInput
+  ): Promise<EnterpriseBudgetRaw> {
+    logger.debug('Updating enterprise budget', { enterprise, budgetId, budgetAmount: input.budgetAmount });
+    const r = await fetch(
+      `${this.baseUrl}/enterprises/${enterprise}/settings/billing/budgets/${budgetId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...this.headers,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ budget_amount: input.budgetAmount }),
+      }
+    );
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`PATCH /enterprises/${enterprise}/settings/billing/budgets/${budgetId} → ${r.status}: ${body}`);
+    }
+    return r.json() as Promise<EnterpriseBudgetRaw>;
+  }
+
+  async createEnterpriseBudget(
+    enterprise: string,
+    input: CreateEnterpriseBudgetInput
+  ): Promise<EnterpriseBudgetRaw> {
+    logger.debug('Creating enterprise budget override', {
+      enterprise,
+      user: input.user,
+      budgetAmount: input.budgetAmount,
+      budgetProductSku: input.budgetProductSku,
+    });
+
+    const r = await fetch(
+      `${this.baseUrl}/enterprises/${enterprise}/settings/billing/budgets`,
+      {
+        method: 'POST',
+        headers: {
+          ...this.headers,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          budget_amount: input.budgetAmount,
+          budget_scope: 'user',
+          user: input.user,
+          prevent_further_usage: input.preventFurtherUsage ?? true,
+          budget_product_sku: input.budgetProductSku,
+          budget_type: input.budgetType ?? 'BundlePricing',
+          budget_alerting: {
+            will_alert: false,
+            alert_recipients: [],
+          },
+        }),
+      }
+    );
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`POST /enterprises/${enterprise}/settings/billing/budgets → ${r.status}: ${body}`);
+    }
+    return r.json() as Promise<EnterpriseBudgetRaw>;
+  }
+
+  async listOrgTeams(org: string): Promise<OrgTeamRaw[]> {
+    logger.debug('Fetching org teams', { org });
+    const teams: OrgTeamRaw[] = [];
+    let page = 1;
+    const perPage = 100;
+
+    while (true) {
+      const r = await fetch(
+        `${this.baseUrl}/orgs/${org}/teams?per_page=${perPage}&page=${page}`,
+        { headers: this.headers }
+      );
+      if (!r.ok) {
+        const body = await r.text();
+        throw new Error(`GET /orgs/${org}/teams → ${r.status}: ${body}`);
+      }
+
+      const data = (await r.json()) as OrgTeamRaw[];
+      teams.push(...data);
+      if (data.length < perPage) break;
+      page++;
+    }
+
+    return teams;
+  }
+
+  async listTeamMembers(org: string, teamSlug: string): Promise<TeamMemberRaw[]> {
+    logger.debug('Fetching team members', { org, teamSlug });
+    const members: TeamMemberRaw[] = [];
+    let page = 1;
+    const perPage = 100;
+
+    while (true) {
+      const r = await fetch(
+        `${this.baseUrl}/orgs/${org}/teams/${teamSlug}/members?per_page=${perPage}&page=${page}`,
+        { headers: this.headers }
+      );
+      if (!r.ok) {
+        const body = await r.text();
+        throw new Error(`GET /orgs/${org}/teams/${teamSlug}/members → ${r.status}: ${body}`);
+      }
+
+      const data = (await r.json()) as TeamMemberRaw[];
+      members.push(...data);
+      if (data.length < perPage) break;
+      page++;
+    }
+
+    return members;
   }
 }
 

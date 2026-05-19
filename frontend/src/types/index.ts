@@ -37,6 +37,11 @@ export interface SummaryResponse {
   features: FeatureCount[];
 }
 
+export interface AppConfigResponse {
+  enterpriseSlug: string | null;
+  demoMode: boolean;
+}
+
 export interface OrgSummary {
   org: string;
   totalSeats: number;
@@ -145,4 +150,112 @@ export interface ModelUsageFilters {
   sort?: 'interactions_desc' | 'locAdded_desc' | 'locSuggested_desc' | 'acceptance_desc' | 'user_asc';
   page?: number;
   pageSize?: number;
+}
+
+// ── Budget administration types ───────────────────────────────────────
+
+export interface BudgetItem {
+  id: string;
+  user: string | null;
+  budgetAmount: number;
+  budgetScope: string | null;
+  budgetProductSku: string | null;
+  budgetType: string | null;
+  preventFurtherUsage: boolean;
+  currentAmount: number | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  hasEffectiveBudget: boolean;
+}
+
+export interface BudgetListResponse {
+  total: number;
+  items: BudgetItem[];
+}
+
+export interface BudgetFilters {
+  search?: string;
+  user?: string;
+  budgetTarget?: string;
+}
+
+export interface TeamSummary {
+  id: number;
+  slug: string;
+  name: string;
+  description: string | null;
+  privacy: string | null;
+  membersCount: number | null;
+}
+
+export interface TeamListResponse {
+  total: number;
+  items: TeamSummary[];
+}
+
+export interface TeamMember {
+  login: string;
+  id: number;
+  avatarUrl: string | null;
+  htmlUrl: string | null;
+}
+
+export interface TeamMemberListResponse {
+  total: number;
+  items: TeamMember[];
+}
+
+export interface UpdateBudgetRequest {
+  budgetId: string;
+  budgetAmount: number;
+}
+
+export interface UpdateBudgetResponse {
+  item: BudgetItem;
+}
+
+export interface UpsertBudgetRequest {
+  user: string;
+  budgetAmount: number;
+  budgetTarget?: string;
+  preventFurtherUsage?: boolean;
+}
+
+export interface UpsertBudgetResponse {
+  action: 'created' | 'updated';
+  item: BudgetItem;
+}
+
+export interface TeamBudgetUpdateRequest {
+  org: string;
+  teamSlug: string;
+  budgetAmount: number;
+  budgetTarget?: string;
+  createIfMissing?: boolean;
+  preventFurtherUsage?: boolean;
+}
+
+export type TeamBudgetUpdateStatus = 'created' | 'updated' | 'skipped_no_existing_budget' | 'failed';
+
+export interface TeamBudgetUpdateResult {
+  user: string;
+  status: TeamBudgetUpdateStatus;
+  budgetId: string | null;
+  item?: BudgetItem;
+  message?: string;
+}
+
+export interface TeamBudgetUpdateResponse {
+  org: string;
+  teamSlug: string;
+  budgetAmount: number;
+  budgetTarget: string;
+  totalMembers: number;
+  summary: {
+    updated: number;
+    created: number;
+    skipped: number;
+    failed: number;
+  };
+  results: TeamBudgetUpdateResult[];
 }

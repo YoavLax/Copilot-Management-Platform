@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { useAppConfig } from '../../hooks/useUsage';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Overview' },
@@ -7,6 +8,8 @@ const NAV_ITEMS = [
 ];
 
 export function TopNav() {
+  const { data: appConfig } = useAppConfig();
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-gh-canvas-inset border-b border-gh-border flex items-center px-4 gap-4">
       <div className="flex items-center gap-2.5 text-gh-fg min-w-0">
@@ -42,7 +45,7 @@ export function TopNav() {
       </nav>
 
       <div className="ml-auto flex items-center gap-2 text-xs text-gh-fg-subtle">
-        <span className="hidden sm:block">varonis-emu</span>
+        {appConfig?.enterpriseSlug ? <span className="hidden sm:block">{appConfig.enterpriseSlug}</span> : null}
       </div>
     </header>
   );

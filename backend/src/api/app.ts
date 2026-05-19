@@ -6,6 +6,7 @@ import { config } from '../config';
 import { logger } from '../lib/logger';
 import usageRouter from './routes/usage';
 import modelUsageRouter from './routes/modelUsage';
+import budgetsRouter from './routes/budgets';
 
 export function createApp() {
   const app = express();
@@ -24,9 +25,17 @@ export function createApp() {
     res.json({ status: 'ok', timestamp: new Date().toISOString(), demoMode: config.demoMode });
   });
 
+  app.get('/api/copilot/config', (_req: Request, res: Response) => {
+    res.json({
+      enterpriseSlug: config.github.enterpriseSlug || null,
+      demoMode: config.demoMode,
+    });
+  });
+
   // API routes
   app.use('/api/copilot', usageRouter);
   app.use('/api/copilot/model-usage', modelUsageRouter);
+  app.use('/api/copilot', budgetsRouter);
 
   // 404 handler
   app.use((_req: Request, res: Response) => {

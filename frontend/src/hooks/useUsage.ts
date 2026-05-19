@@ -1,6 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { SeatsFilters, ModelUsageFilters } from '../types';
+import type { SeatsFilters, ModelUsageFilters, BudgetFilters, UpdateBudgetRequest, TeamBudgetUpdateRequest, UpsertBudgetRequest } from '../types';
+
+export function useAppConfig() {
+  return useQuery({
+    queryKey: ['app-config'],
+    queryFn: () => api.getAppConfig(),
+    staleTime: 300_000,
+  });
+}
 
 export function useSummary(org?: string) {
   return useQuery({
@@ -31,6 +39,62 @@ export function useOrgs() {
     queryKey: ['orgs'],
     queryFn: () => api.getOrgs(),
     staleTime: 300_000,
+  });
+}
+
+export function useBudgets(filters: BudgetFilters) {
+  return useQuery({
+    queryKey: ['budgets', filters],
+    queryFn: () => api.getBudgets(filters),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useBudgetTeams(org?: string) {
+  return useQuery({
+    queryKey: ['budget-teams', org ?? 'none'],
+    queryFn: () => api.getTeams(org!),
+    enabled: Boolean(org),
+    staleTime: 300_000,
+  });
+}
+
+export function useTeamMembers(org?: string, teamSlug?: string) {
+  return useQuery({
+    queryKey: ['team-members', org ?? 'none', teamSlug ?? 'none'],
+    queryFn: () => api.getTeamMembers(org!, teamSlug!),
+    enabled: Boolean(org && teamSlug),
+    staleTime: 300_000,
+  });
+}
+
+export function useUpdateBudget() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateBudgetRequest) => api.updateBudget(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['budgets'] });
+    },
+  });
+}
+
+export function useUpsertBudget() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpsertBudgetRequest) => api.upsertBudget(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['budgets'] });
+    },
+  });
+}
+
+export function useTeamBudgetUpdate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: TeamBudgetUpdateRequest) => api.updateTeamBudgets(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['budgets'] });
+    },
   });
 }
 

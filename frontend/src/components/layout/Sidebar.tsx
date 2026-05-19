@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Users,
   Database,
+  Wallet,
 } from 'lucide-react';
 
 const SECTIONS = [
@@ -16,6 +17,7 @@ const SECTIONS = [
   {
     title: 'Administration',
     items: [
+      { to: '/budgets', label: 'Budgets', icon: Wallet },
       { to: '/ingestion', label: 'Data Pipeline', icon: Database },
     ],
   },
