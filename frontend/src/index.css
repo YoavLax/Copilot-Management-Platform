@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  
+  body {
+    @apply bg-gh-canvas text-gh-fg font-sans;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-gh-canvas-subtle;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gh-border rounded;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gh-fg-subtle;
+  }
+}
+
+@layer components {
+  .gh-btn {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-gh-border bg-gh-canvas-subtle text-gh-fg hover:bg-[#21262d] transition-colors cursor-pointer;
+  }
+
+  .gh-btn-primary {
+    @apply gh-btn bg-gh-accent-emphasis border-[#388bfd] text-white hover:bg-[#1f6feb];
+  }
+
+  .gh-input {
+    @apply bg-gh-canvas-inset border border-gh-border rounded-md px-3 py-1.5 text-sm text-gh-fg placeholder-gh-fg-subtle focus:outline-none focus:border-gh-accent-emphasis focus:ring-1 focus:ring-gh-accent-emphasis;
+  }
+
+  .gh-select {
+    @apply gh-input appearance-none cursor-pointer pr-8;
+  }
+
+  .gh-card {
+    @apply bg-gh-canvas-subtle border border-gh-border rounded-md p-4;
+  }
+
+  .gh-table {
+    @apply w-full text-sm border-collapse;
+  }
+
+  .gh-table th {
+    @apply text-left text-gh-fg-muted font-medium py-2 px-3 border-b border-gh-border bg-gh-canvas-subtle text-xs uppercase tracking-wide;
+  }
+
+  .gh-table td {
+    @apply py-2.5 px-3 border-b border-gh-border-muted text-gh-fg;
+  }
+
+  .gh-table tr:hover td {
+    @apply bg-gh-canvas-subtle cursor-pointer;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-green {
+    @apply badge bg-[#1a4a1f] text-gh-success border border-[#2ea043]/30;
+  }
+
+  .badge-blue {
+    @apply badge bg-[#0d2d6b] text-[#79c0ff] border border-[#1f6feb]/30;
+  }
+
+  .badge-purple {
+    @apply badge bg-[#2d1f54] text-[#d2a8ff] border border-gh-done/30;
+  }
+
+  .badge-gray {
+    @apply badge bg-gh-canvas-subtle text-gh-fg-muted border border-gh-border;
+  }
+
+  .badge-orange {
+    @apply badge bg-[#4a2a0d] text-[#f0883e] border border-[#d29922]/30;
+  }
+}

@@ -1,0 +1,116 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model IngestionRun {
+  id               String    @id @default(uuid())
+  orgSlug          String
+  status           String    // running | success | failed
+  startedAt        DateTime
+  completedAt      DateTime?
+  errorMessage     String?
+  recordsProcessed Int       @default(0)
+
+  @@index([orgSlug])
+  @@map("ingestion_runs")
+}
+
+// One row per user per org — upserted on every sync
+model CopilotSeat {
+  id                    String    @id @default(uuid())
+  orgSlug               String
+  userLogin             String
+  userId                Int?
+
+  createdAt             DateTime  // seat assigned date
+  updatedAt             DateTime  // seat record updated
+  lastActivityAt        DateTime?
+  lastActivityEditor    String?   // raw: "vscode/1.118.1/copilot-chat/0.46.2"
+  lastAuthenticatedAt   DateTime?
+  pendingCancellationDate DateTime?
+  planType              String?   // business | enterprise
+
+  // Parsed from lastActivityEditor
+  editorName            String?   // vscode | jetbrains | visualstudio | ...
+  editorVersion         String?   // 1.118.1
+
+  syncedAt              DateTime  @default(now())
+
+  @@unique([orgSlug, userLogin])
+  @@index([orgSlug])
+  @@index([lastActivityAt])
+  @@map("copilot_seats")
+}
+
+// Org-level daily billing snapshot
+model OrgBillingSnapshot {
+  id                   String   @id @default(uuid())
+  orgSlug              String
+  snapshotAt           DateTime @default(now())
+
+  totalSeats           Int
+  activeThisCycle      Int
+  inactiveThisCycle    Int
+  pendingCancellation  Int
+  pendingInvitation    Int
+  addedThisCycle       Int
+  planType             String?
+  seatManagement       String?
+
+  @@index([orgSlug, snapshotAt])
+  @@map("org_billing_snapshots")
+}
+
+// Per-user per-day per-model per-feature usage (imported from enterprise analytics export)
+model UserModelUsage {
+  id              String   @id
+  userLogin       String
+  userId          Int?
+  day             DateTime @db.Date
+  model           String
+  feature         String
+  interactions    Int      @default(0)
+  codeGenCount    Int      @default(0)
+  codeAcceptCount Int      @default(0)
+  locSuggestedAdd Int      @default(0)
+  locAdded        Int      @default(0)
+
+  @@unique([userLogin, day, model, feature])
+  @@index([userLogin])
+  @@index([day])
+  @@index([model])
+  @@map("user_model_usage")
+}
+
+// Tracks each usage data import run
+model UsageImportRun {
+  id            String   @id @default(uuid())
+  importedAt    DateTime @default(now())
+  recordsLoaded Int      @default(0)
+  usersFound    Int      @default(0)
+  dateFrom      String?
+  dateTo        String?
+  sourceType    String   @default("api")
+  dataPath      String?
+
+  @@map("usage_import_runs")
+}
+
+// Model pricing from GitHub premium_request/usage API
+model ModelPricing {
+  model        String   @id
+  sku          String
+  pricePerUnit Float
+  unitType     String
+  updatedAt    DateTime @updatedAt
+
+  @@map("model_pricing")
+}
