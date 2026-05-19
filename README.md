@@ -1,140 +1,171 @@
-# GitHub Copilot Usage Extended Insights
+# GitHub Copilot Management Console
 
-A dark GitHub-style dashboard for monitoring enterprise-wide GitHub Copilot usage — per engineer, per model, with daily trends and cost estimates.
+An open-source dashboard for monitoring GitHub Copilot adoption, usage, model mix, and ingestion health across an enterprise or multi-org environment.
 
-## Features
+The project ships with a demo mode so the UI can be explored without live GitHub credentials. All screenshots in this repository use fake data.
 
-- **Overview page** — summary cards: active users, interactions, chat/agent requests, LOC added, estimated cost
-- **Detailed Report** — paginated, sortable, filterable per-user table with model breakdown
-- **Model Breakdown** — bar + pie charts showing usage and cost split by model
-- **User Drilldown** — side panel with daily trend chart, model usage breakdown, and summary stats
-- **Data Pipeline** — ingestion run history and manual trigger
-- **Demo mode** — works out of the box with mock data (no GitHub token required)
+## Highlights
 
-## Quick Start (Docker)
+- Dashboard overview for seats, activity, editor distribution, and model usage
+- Detailed per-user reporting with filters and model drilldowns
+- Budget management workflows for users and teams
+- Ingestion controls and run history for seat sync and model usage import
+- Demo mode for local evaluation without real enterprise data
+- Backend API and Prisma schema ready for extension
+
+## Screenshots
+
+### Overview
+
+![Overview screenshot](docs/screenshots/overview.png)
+
+### Detailed Report
+
+![Detailed report screenshot](docs/screenshots/report.png)
+
+### Data Pipeline
+
+![Data pipeline screenshot](docs/screenshots/pipeline.png)
+
+### Budget Management
+
+![Budget management screenshot](docs/screenshots/budgets.png)
+
+## Tech Stack
+
+- Frontend: React, Vite, TypeScript, Tailwind, Recharts
+- Backend: Node.js, Express, TypeScript, Prisma
+- Database: PostgreSQL
+- Scheduling: node-cron
+
+## Quick Start
+
+### Docker
 
 ```bash
 cp .env.example .env
 docker-compose up -d
 ```
 
-Open [http://localhost](http://localhost) — the dashboard runs in demo mode by default.
+Open http://localhost.
 
-## Development Setup
+### Local Development
 
-### Prerequisites
+Prerequisites:
 
 - Node.js 20+
-- PostgreSQL 14+ (or use the Docker Compose service)
+- PostgreSQL 14+
 - npm
 
-### 1. Install dependencies
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-### 2. Configure environment
+Create local configuration:
 
 ```bash
 cp .env.example .env
-# Edit .env — set DEMO_MODE=true for mock data, or add a real GITHUB_TOKEN
 ```
 
-### 3. Start PostgreSQL
+Initialize the database:
 
 ```bash
 docker-compose up -d postgres
-```
-
-### 4. Push database schema
-
-```bash
 npm run db:push
 ```
 
-### 5. Start everything
+Run the app:
 
 ```bash
 npm run dev
 ```
 
-- Backend: http://localhost:3001
 - Frontend: http://localhost:5173
+- Backend: http://localhost:3001
+
+## Configuration
+
+The main configuration lives in `.env`. Start from [.env.example](.env.example).
+
+Common settings:
+
+- `DEMO_MODE=true` runs the UI against demo-friendly flows
+- `GITHUB_TOKEN` supplies GitHub API access for real data ingestion
+- `GITHUB_ENTERPRISE_SLUG` selects the enterprise slug shown in the app chrome
+- `GITHUB_ORG` or `GITHUB_ORGS` can be used for single-org or multi-org setups
+- `DATABASE_URL` points Prisma to PostgreSQL
 
 ## Real GitHub Integration
 
-To connect to real GitHub Enterprise data:
+To connect the app to live enterprise data:
 
-1. Create a [GitHub App](https://docs.github.com/en/apps/creating-github-apps) or a fine-grained PAT with:
-   - `Enterprise Copilot metrics: read`
-   - Or classic: `manage_billing:copilot` / `read:enterprise`
+1. Create a GitHub App or fine-grained PAT with the required enterprise Copilot permissions.
+2. Set the following in `.env`:
 
-2. In `.env`:
-   ```
-   DEMO_MODE=false
-   GITHUB_TOKEN=your_token
-   GITHUB_ENTERPRISE_SLUG=your-enterprise-slug
-   ```
+```env
+DEMO_MODE=false
+GITHUB_TOKEN=your_token
+GITHUB_ENTERPRISE_SLUG=your-enterprise-slug
+```
 
-3. Restart the backend — ingestion will run at startup and daily at 06:00 UTC.
+3. Restart the backend so scheduled ingestion and startup sync can pick up the new configuration.
 
 ## Architecture
 
-```
+```text
 GitHub Enterprise APIs
-         │
-         ▼
-Ingestion Worker (node-cron)
-         │
-         ▼
-PostgreSQL (Prisma)
-         │
-         ▼
-Express API (/api/copilot/usage/*)
-         │
-         ▼
-React Dashboard (Vite + Tailwind + Recharts)
+         |
+         v
+Ingestion Worker
+         |
+         v
+PostgreSQL via Prisma
+         |
+         v
+Express API
+         |
+         v
+React Dashboard
 ```
 
-## Database Schema
+## Data Model
+
+Key tables:
 
 | Table | Purpose |
 |---|---|
-| `ingestion_runs` | Tracks every data fetch — idempotent by enterprise+day+type |
-| `raw_reports` | Stores raw GitHub API payloads for debugging |
-| `copilot_usage_daily_user_model` | Normalized fact table: one row per user+model+ide+feature+day |
+| `ingestion_runs` | Tracks each seat or metrics ingestion run |
+| `raw_reports` | Stores raw payloads for troubleshooting |
+| `copilot_usage_daily_user_model` | Normalized per-user, per-model usage facts |
 
-## API Endpoints
+## API Surface
+
+Representative endpoints:
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/copilot/usage/summary` | Aggregate totals + top models |
-| GET | `/api/copilot/usage/users` | Paginated per-user table |
-| GET | `/api/copilot/usage/users/:login/models` | Per-model breakdown for a user |
-| GET | `/api/copilot/usage/users/:login/daily` | Daily trend for a user |
-| GET | `/api/copilot/usage/models` | List of distinct models |
-| GET | `/api/copilot/usage/organizations` | List of distinct orgs |
-| GET | `/api/copilot/usage/ingestion-runs` | Recent ingestion history |
-| POST | `/api/copilot/usage/ingest` | Manually trigger ingestion |
+| GET | `/api/copilot/config` | UI-safe runtime config such as enterprise slug |
+| GET | `/api/copilot/summary` | Aggregate seat and activity summary |
+| GET | `/api/copilot/seats` | Paginated seat report |
+| GET | `/api/copilot/model-usage/summary` | Aggregate model usage metrics |
+| GET | `/api/copilot/ingestion-runs` | Recent ingestion history |
+| POST | `/api/copilot/ingest` | Trigger seat ingestion |
+| POST | `/api/copilot/model-usage/import` | Trigger model usage sync |
 
-## Open Questions (from design doc)
+## Open Source Notes
 
-Validate these against a real enterprise before v1 launch:
+- License: [MIT](LICENSE)
+- Contributing guide: [CONTRIBUTING.md](CONTRIBUTING.md)
 
-1. Exact field names in enterprise users report
-2. Model usage availability per user per day
-3. Token counts vs interaction counts
-4. Billing API availability at enterprise level
-5. Report file format (JSON vs NDJSON)
+## Documentation Assets
 
-See `backend/src/github/client.ts` — the `CopilotUsageReportRow` interface will need updating after inspecting real report files.
+The screenshots in this README intentionally use fake data.
 
-## Future Extensions
+## Roadmap Ideas
 
-- Budget visualization per engineer
-- Anomaly detection (sudden Opus spike, cost threshold)
-- Email / Teams alerts
-- Manager-level views
-- RBAC (Viewer / Manager / Admin / Billing Admin)
-- Export to CSV
+- Export and scheduled report delivery
+- Alerting for usage anomalies and budget thresholds
+- Additional RBAC roles and audit views
+- More deployment options and production hardening guidance
