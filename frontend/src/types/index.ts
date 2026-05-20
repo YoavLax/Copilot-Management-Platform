@@ -162,6 +162,7 @@ export interface BudgetItem {
   budgetProductSku: string | null;
   budgetType: string | null;
   preventFurtherUsage: boolean;
+  alertsEnabled: boolean;
   currentAmount: number | null;
   createdAt: string | null;
   updatedAt: string | null;

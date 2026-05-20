@@ -134,6 +134,11 @@ export interface CreateEnterpriseBudgetInput {
   preventFurtherUsage?: boolean;
 }
 
+function buildBudgetAlertRecipients(user: string): string[] {
+  const normalizedUser = user.trim();
+  return normalizedUser ? [normalizedUser] : [];
+}
+
 class GitHubCopilotClient {
   private token: string;
   private baseUrl = 'https://api.github.com';
@@ -276,7 +281,6 @@ class GitHubCopilotClient {
   ): Promise<EnterpriseBudgetRaw[] | EnterpriseBudgetListResponse> {
     logger.debug('Fetching enterprise budgets', { enterprise, filters });
     const query = new URLSearchParams();
-    if (filters?.user) query.set('user', filters.user);
     if (filters?.budgetTarget) query.set('budgetTarget', filters.budgetTarget);
 
     const suffix = query.toString() ? `?${query.toString()}` : '';
@@ -342,8 +346,8 @@ class GitHubCopilotClient {
           budget_product_sku: input.budgetProductSku,
           budget_type: input.budgetType ?? 'BundlePricing',
           budget_alerting: {
-            will_alert: false,
-            alert_recipients: [],
+            will_alert: true,
+            alert_recipients: buildBudgetAlertRecipients(input.user),
           },
         }),
       }

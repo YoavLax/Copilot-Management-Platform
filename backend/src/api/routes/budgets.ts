@@ -76,6 +76,11 @@ function normalizeBudget(raw: EnterpriseBudgetRaw) {
     budgetProductSku: (resolved.budget_product_sku ?? raw.budget_product_sku ?? null) as string | null,
     budgetType: (resolved.budget_type ?? raw.budget_type ?? null) as string | null,
     preventFurtherUsage: Boolean(resolved.prevent_further_usage ?? raw.prevent_further_usage ?? false),
+    alertsEnabled: Boolean(
+      (resolved.budget_alerting as { will_alert?: boolean } | undefined)?.will_alert ??
+        (raw.budget_alerting as { will_alert?: boolean } | undefined)?.will_alert ??
+        false
+    ),
     currentAmount: currentValue,
     createdAt: (resolved.created_at ?? raw.created_at ?? null) as string | null,
     updatedAt: (resolved.updated_at ?? raw.updated_at ?? null) as string | null,
@@ -103,14 +108,60 @@ function findExistingPersonalBudget(
   );
 }
 
+function findDefaultPerUserBudget(
+  budgets: EnterpriseBudgetRaw[],
+  budgetTarget?: string
+): EnterpriseBudgetRaw | null {
+  return (
+    budgets.find((budget) => {
+      const scope = budget.effective_budget?.budget_scope ?? budget.budget_scope;
+      if (scope !== 'multi_user_customer') return false;
+      if (budgetTarget) {
+        const target = budget.effective_budget?.budget_product_sku ?? budget.budget_product_sku;
+        return target === budgetTarget;
+      }
+      return true;
+    }) ?? null
+  );
+}
+
+function formatInheritedBudgetMessage(defaultBudget: EnterpriseBudgetRaw | null): string {
+  if (!defaultBudget) {
+    return 'No existing personal budget override was found for this user.';
+  }
+
+  const amount = Number(defaultBudget.effective_budget?.budget_amount ?? defaultBudget.budget_amount ?? 0);
+  const formattedAmount = Number.isFinite(amount)
+    ? new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(amount)
+    : 'the universal per-user budget';
+
+  return `This user inherits the universal per-user budget (${formattedAmount}). GitHub exposes PATCH for existing budget IDs, but this enterprise currently rejects creating new user-specific overrides via POST.`;
+}
+
 function mapBudgetMutationError(error: unknown): string {
   const message = error instanceof Error ? error.message : 'Unknown error';
 
-  if (message.includes("Invalid budget scope 'user'")) {
+  if (
+    message.includes("Invalid budget_scope 'user'") ||
+    message.includes("Invalid budget scope 'user'")
+  ) {
     return 'GitHub rejected personal budget creation for this enterprise. Existing personal overrides can still be updated, but creating new per-user overrides is not supported by the current budget API in this environment.';
   }
 
   return message;
+}
+
+function isUnsupportedUserBudgetCreationError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : 'Unknown error';
+  return (
+    message.includes("Invalid budget_scope 'user'") ||
+    message.includes("Invalid budget scope 'user'")
+  );
 }
 
 async function createOrUpdatePersonalBudget(params: {
@@ -122,7 +173,6 @@ async function createOrUpdatePersonalBudget(params: {
   const enterprise = getEnterpriseSlug();
   const github = getGitHubClient();
   const payload = await github.listEnterpriseBudgets(enterprise, {
-    user: params.user,
     budgetTarget: params.budgetTarget,
   });
   const existingBudget = findExistingPersonalBudget(
@@ -164,7 +214,6 @@ router.get('/budgets', async (req: Request, res: Response) => {
   const enterprise = getEnterpriseSlug();
   const github = getGitHubClient();
   const payload = await github.listEnterpriseBudgets(enterprise, {
-    user: parsed.data.user,
     budgetTarget: parsed.data.budgetTarget,
   });
   let budgets = extractBudgetItems(payload).map(normalizeBudget);
@@ -300,30 +349,42 @@ router.post('/budgets/team-update', async (req: Request, res: Response) => {
       try {
         const enterprise = getEnterpriseSlug();
         const payload = await github.listEnterpriseBudgets(enterprise, {
-          user: member.login,
           budgetTarget,
         });
-        const matchingBudget = findExistingPersonalBudget(
-          extractBudgetItems(payload),
-          member.login,
-          budgetTarget
-        );
+        const budgetItems = extractBudgetItems(payload);
+        const matchingBudget = findExistingPersonalBudget(budgetItems, member.login, budgetTarget);
+        const defaultPerUserBudget = findDefaultPerUserBudget(budgetItems, budgetTarget);
 
         if (!matchingBudget && !createIfMissing) {
           return {
             user: member.login,
             status: 'skipped_no_existing_budget' as const,
             budgetId: null,
-            message: 'No existing personal budget found for this user',
+            message: formatInheritedBudgetMessage(defaultPerUserBudget),
           };
         }
 
-        const result = await createOrUpdatePersonalBudget({
-          user: member.login,
-          budgetAmount,
-          budgetTarget,
-          preventFurtherUsage,
-        });
+        let result;
+        try {
+          result = await createOrUpdatePersonalBudget({
+            user: member.login,
+            budgetAmount,
+            budgetTarget,
+            preventFurtherUsage,
+          });
+        } catch (error) {
+          if (!matchingBudget && isUnsupportedUserBudgetCreationError(error)) {
+            return {
+              user: member.login,
+              status: 'skipped_no_existing_budget' as const,
+              budgetId: null,
+              message: formatInheritedBudgetMessage(defaultPerUserBudget),
+            };
+          }
+
+          throw error;
+        }
+
         return {
           user: member.login,
           status: result.action === 'created' ? ('created' as const) : ('updated' as const),

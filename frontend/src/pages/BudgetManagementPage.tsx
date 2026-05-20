@@ -40,6 +40,7 @@ function BudgetTableRow({
       <td className="text-gh-fg-muted">{formatCurrency(budget.currentAmount)}</td>
       <td className="text-xs text-gh-fg-muted">{budget.budgetScope ?? '—'}</td>
       <td className="text-xs text-gh-fg-muted">{budget.budgetProductSku ?? '—'}</td>
+      <td>{budget.alertsEnabled ? <span className="badge-green">Enabled</span> : <span className="badge-gray">Disabled</span>}</td>
       <td>{budget.preventFurtherUsage ? <span className="badge-orange">Block on limit</span> : <span className="badge-gray">Track only</span>}</td>
       <td className="text-xs text-gh-fg-muted">
         {budget.updatedAt ? formatDistanceToNow(new Date(budget.updatedAt), { addSuffix: true }) : '—'}
@@ -199,7 +200,7 @@ export function BudgetManagementPage() {
         <div>
           <h1 className="text-xl font-semibold text-gh-fg">Budget Management</h1>
           <p className="text-sm text-gh-fg-muted mt-0.5">
-            Manage individual Copilot budgets and create per-user overrides when someone only inherits the org budget.
+            Manage enterprise budgets, create per-user overrides, and update existing personal budgets.
           </p>
         </div>
         <button onClick={() => budgetsQuery.refetch()} className="gh-btn flex items-center gap-1.5">
@@ -285,6 +286,7 @@ export function BudgetManagementPage() {
                   <th>Current</th>
                   <th>Scope</th>
                   <th>SKU</th>
+                  <th>Alerts</th>
                   <th>Enforcement</th>
                   <th>Updated</th>
                 </tr>
@@ -292,12 +294,12 @@ export function BudgetManagementPage() {
               <tbody>
                 {budgetsQuery.isLoading && (
                   <tr>
-                    <td colSpan={7} className="text-center py-8 text-gh-fg-muted">Loading budgets…</td>
+                    <td colSpan={8} className="text-center py-8 text-gh-fg-muted">Loading budgets…</td>
                   </tr>
                 )}
                 {!budgetsQuery.isLoading && budgets.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="text-center py-8 text-gh-fg-muted">No matching budgets found.</td>
+                    <td colSpan={8} className="text-center py-8 text-gh-fg-muted">No matching budgets found.</td>
                   </tr>
                 )}
                 {budgets.map((budget) => (
@@ -428,7 +430,7 @@ export function BudgetManagementPage() {
           <div>
             <h2 className="text-sm font-semibold text-gh-fg">Team Budget Update</h2>
             <p className="text-xs text-gh-fg-muted mt-0.5">
-              Select an org and team, preview members, then update existing overrides. Missing per-user override creation depends on GitHub budget API support for your enterprise.
+              Select an org and team, preview members, then create or update personal overrides for each team member.
             </p>
           </div>
         </div>
