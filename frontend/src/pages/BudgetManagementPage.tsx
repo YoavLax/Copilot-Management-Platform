@@ -2,8 +2,8 @@ import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, RefreshCw, Save, Users, Wallet } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { AppLayout } from '../components/layout/AppLayout';
-import { useBudgets, useBudgetTeams, useOrgs, useTeamBudgetUpdate, useTeamMembers, useUpdateBudget, useUpsertBudget } from '../hooks/useUsage';
-import type { BudgetItem, TeamBudgetUpdateResult, TeamBudgetUpdateStatus } from '../types';
+import { useBudgets, useBudgetTeams, useOrgs, useSeats, useTeamBudgetUpdate, useTeamMembers, useUpdateBudget, useUpsertBudget } from '../hooks/useUsage';
+import type { BudgetItem, SeatRow, TeamBudgetUpdateResult, TeamBudgetUpdateStatus } from '../types';
 
 const DEFAULT_BUDGET_TARGET = 'premium_requests';
 
@@ -78,12 +78,19 @@ export function BudgetManagementPage() {
   const [selectedBudgetId, setSelectedBudgetId] = useState<string | null>(null);
   const [targetUserInput, setTargetUserInput] = useState('');
   const [budgetAmountInput, setBudgetAmountInput] = useState('');
+  const deferredUserSearch = useDeferredValue(targetUserInput.trim());
 
   const [selectedOrg, setSelectedOrg] = useState('');
   const [selectedTeamSlug, setSelectedTeamSlug] = useState('');
   const [teamBudgetAmountInput, setTeamBudgetAmountInput] = useState('');
 
   const budgetsQuery = useBudgets({ budgetTarget: DEFAULT_BUDGET_TARGET });
+  const userSearchQuery = useSeats({
+    search: deferredUserSearch || undefined,
+    sort: 'userLogin_asc',
+    page: 1,
+    pageSize: 8,
+  });
   const orgsQuery = useOrgs();
   const teamsQuery = useBudgetTeams(selectedOrg || undefined);
   const membersQuery = useTeamMembers(selectedOrg || undefined, selectedTeamSlug || undefined);
@@ -109,15 +116,24 @@ export function BudgetManagementPage() {
     [deferredSearch, personalBudgets]
   );
 
-  useEffect(() => {
-    if (!selectedBudgetId && allBudgets.length > 0) {
-      setSelectedBudgetId(allBudgets[0].id);
-    }
-  }, [allBudgets, selectedBudgetId]);
-
   const selectedBudget = useMemo(
     () => allBudgets.find((budget) => budget.id === selectedBudgetId) ?? null,
     [allBudgets, selectedBudgetId]
+  );
+
+  const suggestedUsers = useMemo(() => {
+    const seen = new Set<string>();
+    return (userSearchQuery.data?.items ?? []).filter((seat: SeatRow) => {
+      const login = seat.userLogin.trim();
+      if (!login || seen.has(login)) return false;
+      seen.add(login);
+      return true;
+    });
+  }, [userSearchQuery.data]);
+
+  const hasExactUserMatch = useMemo(
+    () => suggestedUsers.some((seat) => seat.userLogin.toLowerCase() === deferredUserSearch.toLowerCase()),
+    [deferredUserSearch, suggestedUsers]
   );
 
   const isEditingExistingBudget = Boolean(selectedBudget);
@@ -327,7 +343,7 @@ export function BudgetManagementPage() {
               <p className="text-xs text-gh-fg-muted mt-0.5">
                 {isEditingExistingBudget
                   ? 'Click any general or personal budget row to edit that existing budget directly.'
-                  : 'If the user only inherits the org-level budget, the app will try to create a personal override. Your current GitHub budget API may reject that create operation.'}
+                  : 'Search for a user, select them from the results, then create or update their personal budget override.'}
               </p>
             </div>
           </div>
@@ -344,15 +360,50 @@ export function BudgetManagementPage() {
                 </p>
               </div>
             ) : (
-              <label className="block">
+              <div className="block">
                 <span className="text-xs text-gh-fg-muted block mb-1.5">GitHub user</span>
                 <input
                   value={targetUserInput}
                   onChange={(event) => setTargetUserInput(event.target.value)}
                   className="gh-input w-full font-mono"
-                  placeholder="octocat"
+                  placeholder="Search GitHub user"
                 />
-              </label>
+                <div className="mt-2 rounded-md border border-gh-border bg-gh-canvas-inset overflow-hidden">
+                  {userSearchQuery.isLoading ? (
+                    <p className="px-3 py-2 text-xs text-gh-fg-muted">Loading matching users…</p>
+                  ) : suggestedUsers.length > 0 ? (
+                    <div className="max-h-48 overflow-auto">
+                      {suggestedUsers.map((seat) => {
+                        const isSelected = seat.userLogin === targetUserInput.trim();
+                        return (
+                          <button
+                            key={seat.userLogin}
+                            type="button"
+                            onClick={() => setTargetUserInput(seat.userLogin)}
+                            className={`w-full px-3 py-2 text-left border-b border-gh-border last:border-b-0 ${
+                              isSelected ? 'bg-gh-canvas-subtle' : 'hover:bg-gh-canvas-subtle'
+                            }`}
+                          >
+                            <span className="block font-mono text-sm text-gh-fg">{seat.userLogin}</span>
+                            <span className="block text-xs text-gh-fg-muted">
+                              {seat.orgSlug === '_enterprise' ? 'Enterprise user' : seat.orgSlug}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : deferredUserSearch ? (
+                    <p className="px-3 py-2 text-xs text-gh-fg-muted">No matching users found.</p>
+                  ) : (
+                    <p className="px-3 py-2 text-xs text-gh-fg-muted">Start typing to search for a user.</p>
+                  )}
+                </div>
+                {targetUserInput.trim() && !hasExactUserMatch && !userSearchQuery.isLoading && (
+                  <p className="mt-2 text-xs text-gh-fg-muted">
+                    Save will use the typed login if it is valid, even if it is not shown in the current search results.
+                  </p>
+                )}
+              </div>
             )}
 
             <div className="grid grid-cols-2 gap-3">
