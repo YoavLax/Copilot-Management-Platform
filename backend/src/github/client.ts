@@ -92,6 +92,7 @@ export interface EnterpriseBudgetRaw {
   budget_type?: string | null;
   created_at?: string;
   updated_at?: string;
+  consumed_amount?: number;
   current_amount?: number;
   current_usage?: number;
   effective_budget?: EnterpriseBudgetRaw | null;

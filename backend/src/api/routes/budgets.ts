@@ -62,11 +62,19 @@ function normalizeBudget(raw: EnterpriseBudgetRaw) {
   const resolved = effectiveBudget ?? raw;
 
   const currentValue =
-    typeof raw.current_amount === 'number'
-      ? raw.current_amount
-      : typeof raw.current_usage === 'number'
-        ? raw.current_usage
-        : null;
+    typeof resolved.consumed_amount === 'number'
+      ? resolved.consumed_amount
+      : typeof raw.consumed_amount === 'number'
+        ? raw.consumed_amount
+        : typeof resolved.current_amount === 'number'
+          ? resolved.current_amount
+          : typeof raw.current_amount === 'number'
+            ? raw.current_amount
+            : typeof resolved.current_usage === 'number'
+              ? resolved.current_usage
+              : typeof raw.current_usage === 'number'
+                ? raw.current_usage
+                : null;
 
   return {
     id: String(resolved.id ?? raw.id),
