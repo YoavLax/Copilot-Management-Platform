@@ -257,6 +257,22 @@ router.patch('/budgets/:budgetId', async (req: Request, res: Response) => {
   return res.json({ item: normalizeBudget(updated) });
 });
 
+router.delete('/budgets/:budgetId', async (req: Request, res: Response) => {
+  const budgetId = req.params.budgetId?.trim();
+  if (!budgetId) {
+    return res.status(400).json({ error: 'budgetId is required' });
+  }
+
+  try {
+    const enterprise = getEnterpriseSlug();
+    const github = getGitHubClient();
+    await github.deleteEnterpriseBudget(enterprise, budgetId);
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(400).json({ error: mapBudgetMutationError(error) });
+  }
+});
+
 router.post('/budgets', async (req: Request, res: Response) => {
   const body = createBudgetBodySchema.safeParse(req.body);
   if (!body.success) {

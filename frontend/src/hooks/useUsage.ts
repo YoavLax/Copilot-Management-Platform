@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { SeatsFilters, ModelUsageFilters, BudgetFilters, UpdateBudgetRequest, TeamBudgetUpdateRequest, UpsertBudgetRequest } from '../types';
+import type { SeatsFilters, ModelUsageFilters, BudgetFilters, DeleteBudgetRequest, UpdateBudgetRequest, TeamBudgetUpdateRequest, UpsertBudgetRequest } from '../types';
 
 export function useAppConfig() {
   return useQuery({
@@ -72,6 +72,16 @@ export function useUpdateBudget() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: UpdateBudgetRequest) => api.updateBudget(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['budgets'] });
+    },
+  });
+}
+
+export function useDeleteBudget() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: DeleteBudgetRequest) => api.deleteBudget(input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['budgets'] });
     },

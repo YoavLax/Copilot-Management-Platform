@@ -215,6 +215,14 @@ export interface UpdateBudgetResponse {
   item: BudgetItem;
 }
 
+export interface DeleteBudgetRequest {
+  budgetId: string;
+}
+
+export interface DeleteBudgetResponse {
+  success: boolean;
+}
+
 export interface UpsertBudgetRequest {
   user: string;
   budgetAmount: number;

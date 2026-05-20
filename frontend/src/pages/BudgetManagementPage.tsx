@@ -1,8 +1,8 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, RefreshCw, Save, Users, Wallet } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Save, Trash2, Users, Wallet } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { AppLayout } from '../components/layout/AppLayout';
-import { useBudgets, useBudgetTeams, useOrgs, useSeats, useTeamBudgetUpdate, useTeamMembers, useUpdateBudget, useUpsertBudget } from '../hooks/useUsage';
+import { useBudgets, useBudgetTeams, useDeleteBudget, useOrgs, useSeats, useTeamBudgetUpdate, useTeamMembers, useUpdateBudget, useUpsertBudget } from '../hooks/useUsage';
 import type { BudgetItem, SeatRow, TeamBudgetUpdateResult, TeamBudgetUpdateStatus } from '../types';
 
 const DEFAULT_BUDGET_TARGET = 'premium_requests';
@@ -96,6 +96,7 @@ export function BudgetManagementPage() {
   const membersQuery = useTeamMembers(selectedOrg || undefined, selectedTeamSlug || undefined);
 
   const updateBudgetMutation = useUpdateBudget();
+  const deleteBudgetMutation = useDeleteBudget();
   const upsertBudgetMutation = useUpsertBudget();
   const teamUpdateMutation = useTeamBudgetUpdate();
 
@@ -192,6 +193,25 @@ export function BudgetManagementPage() {
       budgetTarget: DEFAULT_BUDGET_TARGET,
       preventFurtherUsage: true,
     });
+  };
+
+  const handleDeleteBudget = () => {
+    if (!selectedBudget) return;
+
+    const label = selectedBudget.user ?? selectedBudget.budgetScope ?? selectedBudget.id;
+    const confirmed = window.confirm(`Delete the selected budget for ${label}? This cannot be undone.`);
+    if (!confirmed) return;
+
+    deleteBudgetMutation.mutate(
+      { budgetId: selectedBudget.id },
+      {
+        onSuccess: () => {
+          setSelectedBudgetId(null);
+          setTargetUserInput('');
+          setBudgetAmountInput('');
+        },
+      }
+    );
   };
 
   const handleTeamUpdate = () => {
@@ -431,7 +451,7 @@ export function BudgetManagementPage() {
 
             <button
               onClick={handleSingleBudgetSave}
-              disabled={updateBudgetMutation.isPending || upsertBudgetMutation.isPending}
+              disabled={updateBudgetMutation.isPending || upsertBudgetMutation.isPending || deleteBudgetMutation.isPending}
               className="gh-btn-primary w-full justify-center"
             >
               <Save className="w-4 h-4" />
@@ -443,16 +463,26 @@ export function BudgetManagementPage() {
             </button>
 
             {isEditingExistingBudget && (
-              <button
-                onClick={() => {
-                  setSelectedBudgetId(null);
-                  setTargetUserInput('');
-                  setBudgetAmountInput('');
-                }}
-                className="gh-btn w-full justify-center"
-              >
-                New user override
-              </button>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={handleDeleteBudget}
+                  disabled={deleteBudgetMutation.isPending}
+                  className="gh-btn w-full justify-center text-gh-danger border-gh-danger/30 hover:bg-[#3d1515]"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {deleteBudgetMutation.isPending ? 'Deleting…' : 'Delete selected budget'}
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedBudgetId(null);
+                    setTargetUserInput('');
+                    setBudgetAmountInput('');
+                  }}
+                  className="gh-btn w-full justify-center"
+                >
+                  New user override
+                </button>
+              </div>
             )}
 
             {updateBudgetMutation.isSuccess && (
@@ -465,6 +495,12 @@ export function BudgetManagementPage() {
             )}
             {updateBudgetMutation.isError && (
               <p className="text-xs text-gh-danger">{(updateBudgetMutation.error as Error).message}</p>
+            )}
+            {deleteBudgetMutation.isSuccess && isEditingExistingBudget && (
+              <p className="text-xs text-gh-success">Budget deleted successfully.</p>
+            )}
+            {deleteBudgetMutation.isError && (
+              <p className="text-xs text-gh-danger">{(deleteBudgetMutation.error as Error).message}</p>
             )}
             {upsertBudgetMutation.isError && (
               <p className="text-xs text-gh-danger">{(upsertBudgetMutation.error as Error).message}</p>

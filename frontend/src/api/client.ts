@@ -14,6 +14,8 @@ import type {
   TeamMemberListResponse,
   UpdateBudgetRequest,
   UpdateBudgetResponse,
+  DeleteBudgetRequest,
+  DeleteBudgetResponse,
   UpsertBudgetRequest,
   UpsertBudgetResponse,
   TeamBudgetUpdateRequest,
@@ -85,6 +87,11 @@ export const api = {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ budgetAmount }),
+    }),
+
+  deleteBudget: ({ budgetId }: DeleteBudgetRequest) =>
+    apiSend<DeleteBudgetResponse>(`${BASE}/budgets/${encodeURIComponent(budgetId)}`, {
+      method: 'DELETE',
     }),
 
   upsertBudget: (input: UpsertBudgetRequest) =>

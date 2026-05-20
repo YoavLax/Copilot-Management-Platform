@@ -320,6 +320,18 @@ class GitHubCopilotClient {
     return r.json() as Promise<EnterpriseBudgetRaw>;
   }
 
+  async deleteEnterpriseBudget(enterprise: string, budgetId: string): Promise<void> {
+    logger.debug('Deleting enterprise budget', { enterprise, budgetId });
+    const r = await fetch(`${this.baseUrl}/enterprises/${enterprise}/settings/billing/budgets/${budgetId}`, {
+      method: 'DELETE',
+      headers: this.headers,
+    });
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`DELETE /enterprises/${enterprise}/settings/billing/budgets/${budgetId} → ${r.status}: ${body}`);
+    }
+  }
+
   async createEnterpriseBudget(
     enterprise: string,
     input: CreateEnterpriseBudgetInput
